@@ -7,7 +7,7 @@ jobs:
       matrix:
         configuration: [Debug, Release]
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
       with:
         name: Bloxstrap.Builder (${{ matrix.configuration }})
         path: |
-          .\Bloxstrap.Builder\bin\${{ matrix.configuration }}\net6.0\publish\win-x64\*
+          .\Bloxstrap.Builder\bin\${{ matrix.configuration }}\net6.0\win-x64\publish\*
 
   release:
     needs: build
@@ -40,12 +40,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Download x64 release artifact
+      - name: Download release artifact
         uses: actions/download-artifact@v4
         with:
           name: Bloxstrap.Builder (Release)
 
-      - name: Zip artifact
+      - name: Zip release package
         run: |
           zip -r Bloxstrap.Builder-${{ github.ref_name }}.zip *
 
