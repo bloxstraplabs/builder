@@ -1,0 +1,58 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Publish
+      run: dotnet publish -p:PublishSingleFile=true -r win-x64 -c ${{ matrix.configuration }} --self-contained false .\Bloxstrap.Builder\Bloxstrap.Builder.csproj
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Bloxstrap.Builder (${{ matrix.configuration }})
+        path: |
+          .\Bloxstrap.Builder\bin\${{ matrix.configuration }}\net6.0\publish\win-x64\*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download x64 release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Bloxstrap.Builder (Release)
+
+      - name: Zip artifact
+        run: |
+          zip -r Bloxstrap.Builder-${{ github.ref_name }}.zip *
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            Bloxstrap.Builder-${{ github.ref_name }}.zip
+          name: Builder ${{ github.ref_name }}
