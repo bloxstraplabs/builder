@@ -1,8 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
+
 using Crowdin.Api;
-using Crowdin.Api.SourceFiles;
 using Crowdin.Api.Translations;
+
 using LibGit2Sharp;
 
 namespace Bloxstrap.Builder
@@ -59,6 +62,8 @@ namespace Bloxstrap.Builder
 
         static HttpClient HttpClient = new();
 
+        static System.Version Version = Assembly.GetExecutingAssembly().GetName().Version!;
+
         static void WriteLineColor(string line, ConsoleColor color)
         {
             Console.ForegroundColor = color;
@@ -68,6 +73,8 @@ namespace Bloxstrap.Builder
 
         static void Main(string[] args)
         {
+            HttpClient.DefaultRequestHeaders.Add("User-Agent", $"Bloxstrap.Builder/{Version}");
+
             Console.ForegroundColor = ConsoleColor.White;
             
             Console.Title = "Bloxstrap Builder v1.0.2";
@@ -83,7 +90,7 @@ namespace Bloxstrap.Builder
 
             try
             {
-                Config = JsonSerializer.Deserialize<Config>(System.IO.File.ReadAllText("config.json"))!;
+                Config = JsonSerializer.Deserialize<Config>(File.ReadAllText("config.json"))!;
             }
             catch (Exception)
             {
@@ -92,6 +99,8 @@ namespace Bloxstrap.Builder
 
             OriginalConfigValidation = ValidateConfig(true, true);
 
+            CheckForUpdate().Wait();
+            
             Console.WriteLine("Type \"help\" to see a list of commands.");
 
             while (Running)
@@ -209,7 +218,7 @@ namespace Bloxstrap.Builder
             Save();
         }
 
-        static void Save() => System.IO.File.WriteAllText("config.json", JsonSerializer.Serialize(Config));
+        static void Save() => File.WriteAllText("config.json", JsonSerializer.Serialize(Config));
 
         static void ConfigureCrowdin()
         {
@@ -239,7 +248,7 @@ namespace Bloxstrap.Builder
             if (!ValidateConfig(true, false))
                 return;
 
-            bool exists = System.IO.Directory.Exists("bloxstrap");
+            bool exists = Directory.Exists("bloxstrap");
 
             if (!exists)
             {
@@ -270,7 +279,7 @@ namespace Bloxstrap.Builder
 
             {
                 using var httpStream = HttpClient.GetStreamAsync(response.Link!.Url).Result;
-                using var fileStream = System.IO.File.Create($"bloxstrap\\Bloxstrap\\Resources\\Strings.{Config.ChosenLocale!}.resx");
+                using var fileStream = File.Create($"bloxstrap\\Bloxstrap\\Resources\\Strings.{Config.ChosenLocale!}.resx");
                 httpStream.CopyTo(fileStream);
             }
 
@@ -282,10 +291,24 @@ namespace Bloxstrap.Builder
 
             Console.WriteLine("");
 
-            if (System.IO.File.Exists(exePath))
+            // TODO: don't do this
+            if (File.Exists(exePath))
                 Console.WriteLine("Build succeeded. Type \"run\" to run it.");
             else
                 WriteLineColor("Build failed.", ConsoleColor.Red);
+        }
+
+        static async Task CheckForUpdate()
+        {
+            var releaseInfo = await HttpClient.GetFromJsonAsync<GitHubRelease>("https://api.github.com/repos/bloxstraplabs/builder/releases/latest");
+
+            if (releaseInfo is null)
+                return;
+
+            var latestVersion = new System.Version(releaseInfo.TagName[1..]);
+
+            if (Version < latestVersion)
+                WriteLineColor($"A new version of Bloxstrap Builder is available (v{Version.ToString()[..^2]} -> v{latestVersion}).\r\nDownload it from https://github.com/bloxstraplabs/builder/releases/latest.", ConsoleColor.Blue);
         }
 
         static void Run() => Process.Start(exePath);
