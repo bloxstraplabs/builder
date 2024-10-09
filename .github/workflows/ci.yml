@@ -32,7 +32,7 @@ jobs:
       with:
         name: Bloxstrap.Builder (${{ matrix.configuration }})
         path: |
-          Bloxstrap.Builder/bin/${{ matrix.configuration }}/net6.0/win-x64/publish/*
+          Bloxstrap.Builder/bin/${{ matrix.configuration }}/net6.0-windows/win-x64/publish/*
 
   release:
     needs: build
