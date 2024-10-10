@@ -64,6 +64,8 @@ namespace Bloxstrap.Builder
 
         static System.Version Version = Assembly.GetExecutingAssembly().GetName().Version!;
 
+        static string VersionString => $"v{Version.ToString()[..^2]}";
+
         static void WriteLineColor(string line, ConsoleColor color)
         {
             Console.ForegroundColor = color;
@@ -77,7 +79,7 @@ namespace Bloxstrap.Builder
 
             Console.ForegroundColor = ConsoleColor.White;
             
-            Console.Title = "Bloxstrap Builder v1.0.2";
+            Console.Title = $"Bloxstrap Builder {VersionString}";
             Console.WriteLine(Console.Title);
 
             var info = new DirectoryInfo("C:\\Program Files\\dotnet\\sdk");
@@ -85,6 +87,7 @@ namespace Bloxstrap.Builder
             if (!info.Exists || info.GetDirectories().Length == 0)
             {
                 WriteLineColor("The .NET SDK must be installed. Download it from https://dotnet.microsoft.com/en-us/download.", ConsoleColor.Red);
+                Console.ReadKey();
                 return;
             }
 
@@ -147,7 +150,7 @@ namespace Bloxstrap.Builder
                 errors = true;
 
                 if (showErrors)
-                    WriteLineColor("No language been set. List the available languages by typing \"list languages\".", ConsoleColor.Yellow);
+                    WriteLineColor("No language has been set. List the available languages by typing \"list languages\".", ConsoleColor.Yellow);
             }
             else if (showLanguage)
                 Console.WriteLine($"Language has been set to {languageName} ({Config.ChosenLocale}).");
@@ -223,7 +226,7 @@ namespace Bloxstrap.Builder
         static void ConfigureCrowdin()
         {
             Console.WriteLine("To build translations, an API token for your Crowdin account is needed.");
-            Console.WriteLine("Create one by going to your Crowdin settings -> API -> Personal Access Tokens.");
+            Console.WriteLine("You can create one at https://crowdin.com/settings#api-key.");
             Console.WriteLine("You must grant a Read and Write scope for Projects.");
 
             string? token = "";
@@ -261,10 +264,16 @@ namespace Bloxstrap.Builder
             if (exists)
             {
                 Console.WriteLine("Pulling code...");
-                Commands.Pull(repo, new Signature("", "", DateTimeOffset.Now), new PullOptions());
+
+                // https://stackoverflow.com/questions/72812988/how-to-execute-git-reset-hard-in-libgit2sharp
+                var originHeadCommit = repo.ObjectDatabase.FindMergeBase(repo.Branches[repo.Head.TrackedBranch.FriendlyName].Tip, repo.Head.Tip);
+                repo.Reset(ResetMode.Hard, originHeadCommit);
+
+                Commands.Pull(repo, new Signature("anonymous", "anonymous@bloxstraplabs.com", DateTimeOffset.Now), new PullOptions());
             }
 
-            Console.WriteLine("Requesting translation build...");
+            Console.WriteLine("Building translations...");
+
             var client = new CrowdinApiClient(new CrowdinCredentials { AccessToken = Config.CrowdinToken! });
 
             var request = new BuildProjectFileTranslationRequest
@@ -283,11 +292,9 @@ namespace Bloxstrap.Builder
                 httpStream.CopyTo(fileStream);
             }
 
-            Console.WriteLine("Building...");
+            Console.WriteLine("Building Bloxstrap...");
 
-            var buildProcess = Process.Start("dotnet", "publish bloxstrap/Bloxstrap /p:PublishProfile=Publish-x64 /p:DefineConstants=QA_BUILD");
-
-            buildProcess.WaitForExit();
+            Process.Start("dotnet", "publish bloxstrap/Bloxstrap /p:PublishProfile=Publish-x64 /p:DefineConstants=QA_BUILD").WaitForExit();
 
             Console.WriteLine("");
 
@@ -308,7 +315,7 @@ namespace Bloxstrap.Builder
             var latestVersion = new System.Version(releaseInfo.TagName[1..]);
 
             if (Version < latestVersion)
-                WriteLineColor($"A new version of Bloxstrap Builder is available (v{Version.ToString()[..^2]} -> v{latestVersion}).\r\nDownload it from https://github.com/bloxstraplabs/builder/releases/latest.", ConsoleColor.Blue);
+                WriteLineColor($"A new version of Bloxstrap Builder is available ({VersionString} -> {releaseInfo.TagName}).\r\nDownload it from https://github.com/bloxstraplabs/builder/releases/latest.", ConsoleColor.Blue);
         }
 
         static void Run() => Process.Start(exePath);
