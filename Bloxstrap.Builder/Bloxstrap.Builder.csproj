@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Bloxstrap.ico</ApplicationIcon>
-    <Version>1.0.3</Version>
-    <FileVersion>1.0.3</FileVersion>
+    <Version>1.0.4</Version>
+    <FileVersion>1.0.4</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
